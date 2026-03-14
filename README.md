@@ -28,7 +28,11 @@ Server behavior:
 - Updates data by `id` in in-memory `Map` (same `id` replaces previous value).
 - Exposes latest map snapshot: `GET /api/merged-map`
 - Accepts state update JSON: `POST /api/device-state`
+- Accepts device command JSON: `POST /api/device-command`
 - Broadcasts `state-updated` JSON to all WS clients
+- Exposes script list: `GET /api/scripts`
+- Starts script by id: `POST /api/scripts/start` with `{ "id": "demo-worker-alpha" }`
+- Stops script by id: `POST /api/scripts/stop` with `{ "id": "demo-worker-alpha" }`
 
 ## Python Test Client
 
@@ -37,7 +41,10 @@ Server behavior:
 - Optional args:
 	- `--url ws://localhost:8081`
 	- `--interval 0.5`
+	- `--listen-seconds 5`
 
+This script sends and receives concurrently (one coroutine sends, one coroutine keeps receiving ack/event).
+It also acts as the example program: receives `device-command` from server, updates local switch state, and sends `device-state-report` back.
 This script is for local integration testing in CPython.
 Production can use MicroPython with the same JSON message format (`id` + payload fields).
 
@@ -50,3 +57,15 @@ Production can use MicroPython with the same JSON message format (`id` + payload
 - The server also broadcasts a `state-updated` event for clients to receive.
 - If your server address is different, set `VITE_WS_SERVER_URL`, for example:
 	- `VITE_WS_SERVER_URL=http://127.0.0.1:9001 npm run dev`
+
+## Script Control Page
+
+- Page name: `ScriptControlPage`
+- Each row is one script with status + start/stop buttons.
+- Controlled scripts are separated files under `src/scripts/`.
+- These scripts run independently (standalone) and do not go through server command forwarding.
+
+## Scripts Home Page
+
+- Page name: `ScriptsHomePage`
+- Used as top-level main view, displaying script list/status overview and start/stop buttons.

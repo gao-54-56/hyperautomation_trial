@@ -6,7 +6,7 @@ const data = ref({ size: 0, entries: [], updatedAt: '' })
 const loading = ref(false)
 const updatingSwitch = ref(false)
 const error = ref('')
-const demoSwitchId = 'demo-switch-1'
+const demoSwitchId = 'device-0'
 let timer
 
 const demoSwitchState = computed(() => {
@@ -62,12 +62,16 @@ const toggleDemoSwitch = async () => {
       source: 'frontend-widget',
     }
 
-    const response = await fetch(`${apiBase}/api/device-state`, {
+    const response = await fetch(`${apiBase}/api/device-command`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        id: payload.id,
+        command: 'toggle',
+        source: payload.source,
+      }),
     })
 
     if (!response.ok) {

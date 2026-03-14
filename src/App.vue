@@ -1,5 +1,6 @@
 <script setup>
 import { computed, defineAsyncComponent, reactive } from 'vue'
+import ScriptsHomePage from './pages/ScriptsHomePage.vue'
 
 const componentModules = import.meta.glob('./components/dynamic/**/*.vue')
 const pageModules = import.meta.glob('./pages/**/*.vue')
@@ -30,9 +31,9 @@ const options = computed(() => {
   return [...componentOptions, ...pageOptions]
 })
 
-const createPanel = (slotName) => ({
+const createPanel = (slotName, selectedPath = '') => ({
   slotName,
-  selectedPath: '',
+  selectedPath,
 })
 
 const panels = reactive([
@@ -56,6 +57,15 @@ const getAsyncView = (path) => {
       <h1>多栏动态加载演示（Vue + HMR）</h1>
       <p>每个栏位先是空白，选择一个组件或页面后会异步加载，并在开发模式下自动热更新。</p>
     </header>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>顶层脚本列表</h2>
+      </div>
+      <div class="panel-body">
+        <ScriptsHomePage />
+      </div>
+    </section>
 
     <section class="panel-grid">
       <article v-for="panel in panels" :key="panel.slotName" class="panel">
