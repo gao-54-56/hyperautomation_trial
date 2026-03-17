@@ -1,15 +1,12 @@
 <script setup>
 import { computed, defineAsyncComponent, reactive } from 'vue'
-import AiChatWidget from './components/dynamic/AiChatWidget.vue'
-import ScriptControlPage from './manual-pages/ScriptControlPage.vue'
+import AiChatWidget from './components/AiChatWidget.vue'
+import ScriptControlPage from './components/ScriptControlPage.vue'
 
 const componentModules = import.meta.glob('./components/dynamic/**/*.vue')
-const pageModules = import.meta.glob('./pages/**/*.vue')
-const fixedAiChatPath = './components/dynamic/AiChatWidget.vue'
 
 const moduleMap = {
   ...componentModules,
-  ...pageModules,
 }
 
 const toLabel = (path) => {
@@ -18,21 +15,13 @@ const toLabel = (path) => {
 }
 
 const options = computed(() => {
-  const componentOptions = Object.keys(componentModules)
-    .filter((path) => path !== fixedAiChatPath)
-    .map((path) => ({
-      path,
-      type: '组件',
-      label: toLabel(path),
-    }))
-
-  const pageOptions = Object.keys(pageModules).map((path) => ({
+  const componentOptions = Object.keys(componentModules).map((path) => ({
     path,
-    type: '页面',
+    type: '模块',
     label: toLabel(path),
   }))
 
-  return [...componentOptions, ...pageOptions]
+  return componentOptions
 })
 
 const createPanel = (slotName, selectedPath = '') => ({

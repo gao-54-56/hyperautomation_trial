@@ -56,7 +56,8 @@ Production can use MicroPython with the same JSON message format (`id` + payload
 
 ## Frontend Demo Component
 
-- Dynamic widget name: `UpdatedMapWidget`
+- Dynamic module directory: `src/components/dynamic/`（页面与 widgets 已合并）
+- Example module names: `UpdatedMapWidget`, `DashboardPage`, `ReportPage`
 - It polls `http://localhost:8081/api/merged-map/{id}` every 2 seconds and shows latest updated data.
 - It has a switch button; clicking sends `{ "id": "demo-switch-1", "action": "toggle" }` to `POST /api/device-state`.
 - The server returns authoritative current switch state (`currentSwitchOn`), and the page updates UI based on the response.
@@ -67,6 +68,7 @@ Production can use MicroPython with the same JSON message format (`id` + payload
 ## Script Control Page
 
 - Page name: `ScriptControlPage`
+- Component path: `src/components/ScriptControlPage.vue`（已移出 `manual-pages`）
 - Each row is one script with status + start/stop buttons.
 - Controlled scripts are auto-discovered from `src/scripts/` (all `.js` files).
 - These scripts run independently (standalone) and do not go through server command forwarding.
