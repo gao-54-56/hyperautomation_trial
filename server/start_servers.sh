@@ -4,6 +4,15 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
+set -a
+if [[ -f .env ]]; then
+  . ./.env
+fi
+if [[ -f local.env ]]; then
+  . ./local.env
+fi
+set +a
+
 cleanup() {
   local exit_code=$?
   if [[ -n "${WS_PID:-}" ]]; then kill "$WS_PID" 2>/dev/null || true; fi

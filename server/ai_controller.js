@@ -6,7 +6,7 @@
  *   HTTP Chat Server (default):
  *     node server/ai_controller.js
  *     POST /api/chat  — SSE streaming chat backed by an OpenAI-compatible LLM.
- *                       The LLM can call file tools restricted to scripts/pages/widgets.
+ *                       Read scope: whole project; Write scope: scripts/pages/widgets only.
  *     OPTIONS /api/chat — CORS preflight
  *
  *   MCP Stdio Server:
@@ -40,7 +40,7 @@ import { fileURLToPath } from "url";
 import OpenAI from "openai";
 
 // ---------------------------------------------------------------------------
-// Allowed directory roots (shared by both modes)
+// Permission roots (shared by both modes)
 // ---------------------------------------------------------------------------
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -51,18 +51,28 @@ const ALLOWED_DIRS = {
   widgets: path.join(PROJECT_ROOT, "src", "components", "dynamic"),
 };
 
-/** Resolve and validate a relative path is inside an allowed directory. */
-function assertAllowed(relPath) {
+/** Resolve and validate a relative path is inside project root (read scope). */
+function assertReadablePath(relPath = ".") {
   if (path.isAbsolute(relPath)) {
     throw new Error(`Access denied: absolute paths are not permitted ('${relPath}')`);
   }
   const resolved = path.resolve(PROJECT_ROOT, relPath);
+  const isInsideProject = resolved === PROJECT_ROOT || resolved.startsWith(PROJECT_ROOT + path.sep);
+  if (!isInsideProject) {
+    throw new Error(`Access denied: '${relPath}' is outside project root.`);
+  }
+  return resolved;
+}
+
+/** Resolve and validate a relative path is inside writable directories only. */
+function assertWritablePath(relPath) {
+  const resolved = assertReadablePath(relPath);
   const ok = Object.values(ALLOWED_DIRS).some(
     (dir) => resolved === dir || resolved.startsWith(dir + path.sep)
   );
   if (!ok) {
     throw new Error(
-      `Access denied: '${relPath}' is outside allowed directories (scripts, pages, widgets).`
+      `Access denied: '${relPath}' is outside writable directories (scripts, pages, widgets).`
     );
   }
   return resolved;
@@ -72,34 +82,37 @@ function assertAllowed(relPath) {
 // Shared tool implementations
 // ---------------------------------------------------------------------------
 
-async function toolListFiles(directory) {
-  const dir = ALLOWED_DIRS[directory];
-  if (!dir) throw new Error(`Unknown directory: ${directory}`);
+async function toolListFiles(dirPath = ".") {
+  const dir = assertReadablePath(dirPath);
   const entries = await fs.readdir(dir, { withFileTypes: true });
-  return entries.map((e) => ({ name: e.name, type: e.isDirectory() ? "directory" : "file" }));
+  return entries.map((e) => ({
+    name: e.name,
+    type: e.isDirectory() ? "directory" : "file",
+    path: path.relative(PROJECT_ROOT, path.join(dir, e.name)) || ".",
+  }));
 }
 
 async function toolReadFile(filePath) {
-  const resolved = assertAllowed(filePath);
+  const resolved = assertReadablePath(filePath);
   return await fs.readFile(resolved, "utf-8");
 }
 
 async function toolWriteFile(filePath, content) {
-  const resolved = assertAllowed(filePath);
+  const resolved = assertWritablePath(filePath);
   await fs.mkdir(path.dirname(resolved), { recursive: true });
   await fs.writeFile(resolved, content, "utf-8");
   return `OK: written '${filePath}'`;
 }
 
 async function toolDeleteFile(filePath) {
-  const resolved = assertAllowed(filePath);
+  const resolved = assertWritablePath(filePath);
   await fs.unlink(resolved);
   return `OK: deleted '${filePath}'`;
 }
 
 async function toolRenameFile(fromPath, toPath) {
-  const resolvedFrom = assertAllowed(fromPath);
-  const resolvedTo   = assertAllowed(toPath);
+  const resolvedFrom = assertWritablePath(fromPath);
+  const resolvedTo   = assertWritablePath(toPath);
   await fs.mkdir(path.dirname(resolvedTo), { recursive: true });
   await fs.rename(resolvedFrom, resolvedTo);
   return `OK: renamed '${fromPath}' -> '${toPath}'`;
@@ -107,7 +120,7 @@ async function toolRenameFile(fromPath, toPath) {
 
 async function dispatchTool(name, args) {
   switch (name) {
-    case "list_files":  return toolListFiles(args.directory);
+    case "list_files":  return toolListFiles(args.dir_path ?? ".");
     case "read_file":   return toolReadFile(args.file_path);
     case "write_file":  return toolWriteFile(args.file_path, args.content);
     case "delete_file": return toolDeleteFile(args.file_path);
@@ -125,13 +138,13 @@ const LLM_TOOLS = [
     type: "function",
     function: {
       name: "list_files",
-      description: "List files inside scripts, pages, or widgets directory.",
+      description: "List files in any project directory (read scope is whole project).",
       parameters: {
         type: "object",
         properties: {
-          directory: { type: "string", enum: ["scripts", "pages", "widgets"] },
+          dir_path: { type: "string", description: "Project-relative directory path, e.g. '.', 'src', 'server'" },
         },
-        required: ["directory"],
+        required: [],
       },
     },
   },
@@ -151,7 +164,7 @@ const LLM_TOOLS = [
     type: "function",
     function: {
       name: "write_file",
-      description: "Create or overwrite a file (path relative to project root).",
+      description: "Create or overwrite a file, but only inside src/scripts, src/pages, or src/components/dynamic.",
       parameters: {
         type: "object",
         properties: {
@@ -166,7 +179,7 @@ const LLM_TOOLS = [
     type: "function",
     function: {
       name: "delete_file",
-      description: "Delete a file (path relative to project root).",
+      description: "Delete a file, but only inside src/scripts, src/pages, or src/components/dynamic.",
       parameters: {
         type: "object",
         properties: { file_path: { type: "string" } },
@@ -178,7 +191,7 @@ const LLM_TOOLS = [
     type: "function",
     function: {
       name: "rename_file",
-      description: "Rename or move a file within allowed directories.",
+      description: "Rename or move a file, but only inside src/scripts, src/pages, or src/components/dynamic.",
       parameters: {
         type: "object",
         properties: {
@@ -192,7 +205,8 @@ const LLM_TOOLS = [
 ];
 
 const SYSTEM_PROMPT = `You are an AI assistant for the Hyperautomation project.
-You can read, write, rename, and delete files inside three directories only:
+You can READ any file inside the whole project directory.
+You can WRITE (create/update/delete/rename) files only inside three directories:
 - src/scripts  (worker scripts)
 - src/pages    (Vue page components)
 - src/components/dynamic  (dynamic widgets, referred to as "widgets")
@@ -380,10 +394,10 @@ function startHttpServer() {
 function startMcpStdio() {
   const mcpServer = new McpServer({ name: "hyperautomation-ai-controller", version: "1.0.0" });
 
-  mcpServer.tool("list_files", "List files in scripts/pages/widgets.",
-    { directory: z.enum(["scripts", "pages", "widgets"]) },
-    async ({ directory }) => ({
-      content: [{ type: "text", text: JSON.stringify(await toolListFiles(directory), null, 2) }],
+  mcpServer.tool("list_files", "List files in any project directory (read scope).",
+    { dir_path: z.string().optional() },
+    async ({ dir_path }) => ({
+      content: [{ type: "text", text: JSON.stringify(await toolListFiles(dir_path ?? "."), null, 2) }],
     })
   );
 

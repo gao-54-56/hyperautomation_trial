@@ -7,10 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "ws:server": "python server/ws_server.py",
+    "ws:server": "bash -lc 'set -a; [ -f .env ] && . ./.env; [ -f local.env ] && . ./local.env; set +a; python server/ws_server.py'",
     "ws:server:node": "node server/ws-server.js",
-    "ws:server:py": "python server/ws_server.py",
-    "ai:controller": "node server/ai_controller.js",
+    "ws:server:py": "bash -lc 'set -a; [ -f .env ] && . ./.env; [ -f local.env ] && . ./local.env; set +a; python server/ws_server.py'",
+    "ai:controller": "bash -lc 'set -a; [ -f .env ] && . ./.env; [ -f local.env ] && . ./local.env; set +a; node server/ai_controller.js'",
     "servers:start": "bash server/start_servers.sh"
   },
   "dependencies": {
