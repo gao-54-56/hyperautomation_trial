@@ -55,7 +55,46 @@
 - `400`：缺少或无效 `id`
 - `404`：未找到该 `id` 的状态
 
-## 3.4 GET /api/scripts
+## 3.4 GET /api/app-version
+
+返回当前应用版本号（用于前端检测是否有新版本）。
+
+成功示例：
+
+```json
+{
+  "version": "0.0.0",
+  "updatedAt": "2026-03-18T10:00:00+00:00"
+}
+```
+
+## 3.5 POST /api/app-version/publish
+
+发布一个新版本号。可传 `version`，不传则由服务端生成（`release-时间戳`）。
+
+请求体（可选）：
+
+```json
+{
+  "version": "0.0.1"
+}
+```
+
+成功示例：
+
+```json
+{
+  "type": "app-version-published",
+  "version": "release-1760000000",
+  "updatedAt": "2026-03-18T10:00:01+00:00"
+}
+```
+
+错误：
+
+- `400`：JSON 无效或 `version` 不是字符串
+
+## 3.6 GET /api/scripts
 
 返回脚本控制器中的脚本列表（含运行状态）。
 
@@ -79,7 +118,7 @@
 }
 ```
 
-## 3.5 POST /api/scripts/start
+## 3.7 POST /api/scripts/start
 
 启动指定脚本。
 
@@ -116,7 +155,7 @@
 - `400`：JSON 无效或缺少 `id`
 - `404`：脚本不存在
 
-## 3.6 POST /api/scripts/stop
+## 3.8 POST /api/scripts/stop
 
 停止指定脚本。脚本不应自己退出，而是使用此调用退出！
 
@@ -148,7 +187,7 @@
 - `404`：脚本不存在
 - `409`：脚本当前未运行
 
-## 3.7 POST /api/device/command
+## 3.9 POST /api/device/command
 
 通过服务端向目标设备转发命令，并等待设备回报（最多 5 秒）。
 
@@ -210,7 +249,7 @@
 - `409`：目标连接不可写
 - `504`：设备超时未回报
 
-## 3.8 POST /api/device/state
+## 3.10 POST /api/device/state
 
 便捷状态接口。服务端会将请求映射为命令转发：
 
@@ -239,7 +278,7 @@
 
 响应与错误码同 `POST /api/device/command`。
 
-## 3.9 POST /api/seed-sample
+## 3.11 POST /api/seed-sample
 
 写入一条示例数据并广播 `state-updated`。
 

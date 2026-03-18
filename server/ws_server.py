@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import uuid
+from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any
 
@@ -13,6 +14,21 @@ from script_controller import ScriptController
 
 
 PORT = int(os.getenv("WS_PORT", "8081"))
+ROOT_DIR = Path(__file__).resolve().parents[1]
+
+
+def load_default_app_version() -> str:
+    package_json_path = ROOT_DIR / "package.json"
+    try:
+        payload = json.loads(package_json_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+
+    version = payload.get("version") if isinstance(payload, dict) else None
+    return version.strip() if isinstance(version, str) else ""
+
+
+CURRENT_APP_VERSION = os.getenv("APP_VERSION", "").strip() or load_default_app_version()
 
 merged_by_id: dict[str, dict[str, Any]] = {}
 device_sockets: dict[str, set[web.WebSocketResponse]] = {}
@@ -154,6 +170,38 @@ async def get_merged_map(request: web.Request) -> web.Response:
 
 async def get_scripts(_: web.Request) -> web.Response:
     return json_response({"scripts": script_controller.list_scripts(), "updatedAt": utc_now_iso()})
+
+
+async def get_app_version(_: web.Request) -> web.Response:
+    return json_response({"version": CURRENT_APP_VERSION, "updatedAt": utc_now_iso()})
+
+
+async def publish_app_version(request: web.Request) -> web.Response:
+    global CURRENT_APP_VERSION
+
+    payload: dict[str, Any] = {}
+    if request.can_read_body:
+        try:
+            maybe_payload = await request.json()
+            if isinstance(maybe_payload, dict):
+                payload = maybe_payload
+        except Exception:
+            return json_response({"message": "Invalid JSON"}, status=400)
+
+    requested_version = payload.get("version") if isinstance(payload, dict) else None
+    if requested_version is not None and not isinstance(requested_version, str):
+        return json_response({"message": "version must be a string"}, status=400)
+
+    next_version = (requested_version or "").strip() or f"release-{int(datetime.now().timestamp())}"
+    CURRENT_APP_VERSION = next_version
+
+    event = {
+        "type": "app-version-published",
+        "version": CURRENT_APP_VERSION,
+        "updatedAt": utc_now_iso(),
+    }
+    await broadcast(event)
+    return json_response(event)
 
 
 async def scripts_start(request: web.Request) -> web.Response:
@@ -354,6 +402,8 @@ def create_app() -> web.Application:
     app.router.add_get("/", ws_handler)
     app.router.add_get("/api/merged-map", get_merged_map)
     app.router.add_get("/api/merged-map/{id}", get_merged_map)
+    app.router.add_get("/api/app-version", get_app_version)
+    app.router.add_post("/api/app-version/publish", publish_app_version)
     app.router.add_get("/api/scripts", get_scripts)
     app.router.add_post("/api/scripts/start", scripts_start)
     app.router.add_post("/api/scripts/stop", scripts_stop)
