@@ -6,7 +6,7 @@
  *   HTTP Chat Server (default):
  *     node server/ai_controller.js
  *     POST /api/chat  — SSE streaming chat backed by an OpenAI-compatible LLM.
- *                       Read scope: whole project; Write scope: scripts/pages/widgets only.
+ *                       Read scope: whole project; Write scope: scripts/widgets only.
  *     OPTIONS /api/chat — CORS preflight
  *
  *   MCP Stdio Server:
@@ -47,7 +47,6 @@ const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 
 const ALLOWED_DIRS = {
   scripts: path.join(PROJECT_ROOT, "src", "scripts"),
-  pages:   path.join(PROJECT_ROOT, "src", "pages"),
   widgets: path.join(PROJECT_ROOT, "src", "components", "dynamic"),
 };
 
@@ -72,7 +71,7 @@ function assertWritablePath(relPath) {
   );
   if (!ok) {
     throw new Error(
-      `Access denied: '${relPath}' is outside writable directories (scripts, pages, widgets).`
+      `Access denied: '${relPath}' is outside writable directories (scripts, widgets).`
     );
   }
   return resolved;
@@ -164,7 +163,7 @@ const LLM_TOOLS = [
     type: "function",
     function: {
       name: "write_file",
-      description: "Create or overwrite a file, but only inside src/scripts, src/pages, or src/components/dynamic.",
+      description: "Create or overwrite a file, but only inside src/scripts or src/components/dynamic.",
       parameters: {
         type: "object",
         properties: {
@@ -179,7 +178,7 @@ const LLM_TOOLS = [
     type: "function",
     function: {
       name: "delete_file",
-      description: "Delete a file, but only inside src/scripts, src/pages, or src/components/dynamic.",
+      description: "Delete a file, but only inside src/scripts or src/components/dynamic.",
       parameters: {
         type: "object",
         properties: { file_path: { type: "string" } },
@@ -191,7 +190,7 @@ const LLM_TOOLS = [
     type: "function",
     function: {
       name: "rename_file",
-      description: "Rename or move a file, but only inside src/scripts, src/pages, or src/components/dynamic.",
+      description: "Rename or move a file, but only inside src/scripts or src/components/dynamic.",
       parameters: {
         type: "object",
         properties: {
@@ -204,15 +203,15 @@ const LLM_TOOLS = [
   },
 ];
 
-const SYSTEM_PROMPT = `You are an AI assistant for the Hyperautomation project.
-You can READ any file inside the whole project directory.
-You can WRITE (create/update/delete/rename) files only inside three directories:
-- src/scripts  (worker scripts)
-- src/pages    (Vue page components)
-- src/components/dynamic  (dynamic widgets, referred to as "widgets")
-
-Always use the provided tools when the user asks about or wants to modify files.
-Respond concisely in the same language the user uses.`;
+const SYSTEM_PROMPT = `这是一个超自动化项目，你的任务是为这个项目提供AI能力，协助开发者编写脚本和动态组件（widgets）。你可以调用预定义的工具来操作项目文件，但请注意权限限制：
+在standard.md中，有通用的iot网络报文的格式规范，以及一些示例报文。你可以参考这些内容来生成符合规范的报文。
+在/server/docs目录下，有一些文档文件，包含了已有的iot设备的具体报文格式和功能说明以及服务器api接口文档。这些文档可以帮助你更好地理解设备的功能和如何与它们交互。
+如果不存在上述文件或目录，请先检查项目结构是否正确，发出警告。
+请务必遵守权限限制，避免访问或修改不允许的文件路径。你可以读取项目中的任何文件来获取信息，但只能修改特定目录下的文件。
+你可以阅读项目中的任何文件来获取信息，但只能修改以下目录中的文件：
+- src/scripts  (worker脚本)
+- src/components/dynamic  (动态组件，也称为widgets)
+`;
 
 // ---------------------------------------------------------------------------
 // HTTP Chat Server
