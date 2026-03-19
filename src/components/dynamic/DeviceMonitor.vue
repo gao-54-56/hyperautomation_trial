@@ -2,8 +2,8 @@
   <div class="device-monitor-container">
     <div class="header">
       <h3>🌡️ Device Monitor: {{ deviceId }}</h3>
-      <span :class="['status-badge', connected ? 'connected' : 'disconnected']">
-        {{ connected ? '● Connected' : '○ Disconnected' }}
+      <span :class="['status-badge', connectionStatus]">
+        {{ connectionText }}
       </span>
     </div>
 
@@ -15,6 +15,7 @@
             v-if="temperature !== null"
             :class="['temp-value', tempColorClass]" 
             :d="tempArc"
+            :style="tempDashStyle"
           />
         </svg>
         <div class="temp-value-text">
@@ -107,17 +108,31 @@ export default {
   },
 
   setup(props) {
+    // Connection status: 'connecting' | 'connected' | 'disconnected'
+    const connectionStatus = ref('disconnected');
     const temperature = ref(null);
     const rawTemperature = ref('--');
     const isOn = ref(false);
     const status = ref('ok');
-    const connected = ref(false);
     const lastUpdateTime = ref('--');
     const commandHistory = ref([]);
     const loading = ref(false);
     
+    // Computed for template usage
+    const connected = computed(() => connectionStatus.value === 'connected');
+    
+    const connectionText = computed(() => {
+      switch (connectionStatus.value) {
+        case 'connecting': return '○ Connecting...';
+        case 'connected': return '● Connected';
+        case 'disconnected': return '○ Disconnected';
+        default: return '○ Unknown';
+      }
+    });
+
     let ws = null;
     let reconnectTimeout = null;
+    let pingInterval = null;
     const messageLog = ref([]);
 
     const tempColorClass = computed(() => {
@@ -127,22 +142,41 @@ export default {
       return 'temp-warm';
     });
 
-    const tempArc = computed(() => {
-      if (temperature.value === null) return 'M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831';
+    // SVG path for the full circle (used as base)
+    const tempArc = 'M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831';
+
+    // Calculate the dash array offset based on temperature
+    // Full circumference is 100 (stroke-dasharray reference)
+    // We map temperature range 10-50°C to 0-100%
+    const tempDashStyle = computed(() => {
+      if (temperature.value === null) {
+        return { strokeDasharray: '0, 100' };
+      }
       
-      const percentage = Math.min(Math.max((temperature.value - 10) / 40, 0), 1);
-      const angle = percentage * 270 + 135; // Convert to SVG arc angle
-      const x = 18 + 15.9155 * Math.cos(angle * Math.PI / 180);
-      const y = 18 + 15.9155 * Math.sin(angle * Math.PI / 180);
+      // Map temperature (10-50°C) to percentage (0-1)
+      // Using 10-50 range to cover typical temperature values
+      const minTemp = 10;
+      const maxTemp = 50;
+      const percentage = Math.min(Math.max((temperature.value - minTemp) / (maxTemp - minTemp), 0), 1);
       
-      return `M18 2.0845 a 15.9155 15.9155 0 0 1 ${x - 18} ${y - 18} a 15.9155 15.9155 0 0 1 0 -31.831`;
+      // strokeDasharray: filled, empty
+      // strokeDashoffset: how much to offset from start
+      // The circle starts at top (12 o'clock), we want to show progress clockwise
+      // Since SVG is rotated -90deg, 0 offset starts at top
+      const filled = percentage * 100;
+      const empty = 100 - filled;
+      
+      return {
+        strokeDasharray: `${filled}, ${empty}`,
+        strokeDashoffset: 0
+      };
     });
 
     const debugInfo = computed(() => {
       return {
         deviceId: props.deviceId,
         clientId: props.clientId,
-        connected: connected.value,
+        connectionStatus: connectionStatus.value,
         temperature: temperature.value,
         rawTemperature: rawTemperature.value,
         messageCount: messageLog.value.length,
@@ -184,39 +218,66 @@ export default {
     function connectWebSocket() {
       try {
         logMessage('Connecting to WebSocket...');
+        connectionStatus.value = 'connecting';
         
         // Close existing connection if any
         if (ws) {
           ws.close();
+          ws = null;
+        }
+        
+        // Clear any existing ping interval
+        if (pingInterval) {
+          clearInterval(pingInterval);
+          pingInterval = null;
         }
         
         ws = new WebSocket(props.wsUrl);
         
         ws.onopen = () => {
           logMessage('Connected to server');
-          connected.value = true;
+          connectionStatus.value = 'connected';
           
           // Clear any pending reconnect
           if (reconnectTimeout) {
             clearTimeout(reconnectTimeout);
             reconnectTimeout = null;
           }
+          
+          // Start ping interval to detect connection health
+          pingInterval = setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              // Send a ping to keep connection alive and detect drops
+              try {
+                ws.send(JSON.stringify({ type: 'ping' }));
+              } catch (e) {
+                // Ignore ping errors
+              }
+            }
+          }, 30000);
         };
 
         ws.onclose = (event) => {
           logMessage(`Disconnected. Code: ${event.code}, Reason: ${event.reason || 'N/A'}`);
-          connected.value = false;
+          connectionStatus.value = 'disconnected';
+          
+          // Clear ping interval
+          if (pingInterval) {
+            clearInterval(pingInterval);
+            pingInterval = null;
+          }
           
           // Auto-reconnect after delay unless it was intentional close
           if (!reconnectTimeout && event.code !== 1000) {
             logMessage('Attempting to reconnect...');
+            connectionStatus.value = 'connecting';
             reconnectTimeout = setTimeout(connectWebSocket, 3000);
           }
         };
 
         ws.onerror = (error) => {
           logMessage(`WebSocket error: ${error}`);
-          connected.value = false;
+          connectionStatus.value = 'disconnected';
         };
 
         ws.onmessage = (event) => {
@@ -229,7 +290,7 @@ export default {
         };
       } catch (e) {
         logMessage(`Connection failed: ${e.message}`);
-        connected.value = false;
+        connectionStatus.value = 'disconnected';
         if (!reconnectTimeout) {
           reconnectTimeout = setTimeout(connectWebSocket, 3000);
         }
@@ -267,6 +328,12 @@ export default {
       // Handle ack messages
       if (message.type === 'ack' && message.id === props.deviceId) {
         logMessage('Received ACK for device');
+        return;
+      }
+      
+      // Handle pong responses
+      if (message.type === 'pong') {
+        logMessage('Received pong from server');
         return;
       }
       
@@ -369,8 +436,13 @@ export default {
 
     onUnmounted(() => {
       logMessage('DeviceMonitor unmounting');
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
       if (ws) {
         ws.close();
+        ws = null;
       }
       if (reconnectTimeout) {
         clearTimeout(reconnectTimeout);
@@ -383,11 +455,14 @@ export default {
       rawTemperature,
       isOn,
       status,
+      connectionStatus,
       connected,
+      connectionText,
       lastUpdateTime,
       commandHistory,
       loading,
       tempArc,
+      tempDashStyle,
       tempColorClass,
       debugInfo,
       toggleSwitch
@@ -427,6 +502,12 @@ export default {
   font-weight: 500;
 }
 
+.status-badge.connecting {
+  background-color: rgba(255, 152, 0, 0.2);
+  color: #FF9800;
+  animation: pulse 1.5s infinite;
+}
+
 .status-badge.connected {
   background-color: rgba(76, 175, 80, 0.2);
   color: #4CAF50;
@@ -435,6 +516,11 @@ export default {
 .status-badge.disconnected {
   background-color: rgba(244, 67, 54, 0.2);
   color: #f44336;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 .temperature-display {
@@ -457,7 +543,7 @@ export default {
 
 .temp-bg {
   fill: none;
-  stroke: rgba(255, 255, 55, 0.1);
+  stroke: rgba(255, 255, 255, 0.1);
   stroke-width: 3;
 }
 
@@ -465,7 +551,7 @@ export default {
   fill: none;
   stroke: #FF9800;
   stroke-width: 3;
-  stroke-dasharray: 100, 100;
+  stroke-linecap: round;
   transition: stroke-dasharray 0.5s ease;
 }
 
