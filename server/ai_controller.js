@@ -48,6 +48,19 @@ const DANGEROUS_CODE_PATTERNS = [
   { regex: /\bprocess\.exit\s*\(/m, reason: "process termination is forbidden" },
 ];
 
+class SecurityValidationError extends Error {
+  constructor(filePath, reason) {
+    super(
+      [
+        `Security check failed for '${filePath}': ${reason}.`,
+        "Write has been rolled back.",
+        "Please remove risky code (child_process / exec/spawn/fork / eval/Function / process.exit), then retry.",
+      ].join(" ")
+    );
+    this.name = "SecurityValidationError";
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Permission roots (shared by both modes)
 // ---------------------------------------------------------------------------
@@ -116,21 +129,29 @@ async function toolReadFile(filePath) {
 function validateWrittenCodeSafety(filePath, content) {
   const ext = path.extname(filePath).toLowerCase();
   if (![".js", ".vue"].includes(ext)) {
-    throw new Error(`Security check failed: only .js/.vue are writable ('${filePath}')`);
+    throw new SecurityValidationError(filePath, "only .js/.vue are writable");
   }
 
   const sizeInBytes = Buffer.byteLength(content, "utf-8");
   if (sizeInBytes > MAX_WRITABLE_FILE_SIZE_BYTES) {
-    throw new Error(
-      `Security check failed: file too large (${sizeInBytes} bytes > ${MAX_WRITABLE_FILE_SIZE_BYTES} bytes)`
+    throw new SecurityValidationError(
+      filePath,
+      `file too large (${sizeInBytes} bytes > ${MAX_WRITABLE_FILE_SIZE_BYTES} bytes)`
     );
   }
 
   for (const rule of DANGEROUS_CODE_PATTERNS) {
     if (rule.regex.test(content)) {
-      throw new Error(`Security check failed: ${rule.reason}`);
+      throw new SecurityValidationError(filePath, rule.reason);
     }
   }
+}
+
+function formatToolFailure(name, err) {
+  if (name === "write_file" && err?.name === "SecurityValidationError") {
+    return `SecurityValidationError: ${err.message}`;
+  }
+  return `Error: ${err?.message ?? "unknown tool error"}`;
 }
 
 async function toolWriteFile(filePath, content) {
@@ -273,6 +294,7 @@ const SYSTEM_PROMPT = `这是一个超自动化项目，你的任务是为这个
 你可以阅读项目中的任何文件来获取信息，但只能修改以下目录中的文件：
 - src/scripts  (worker脚本)
 - src/components/dynamic  (动态组件，也称为widgets)
+请确保你对这些权限限制有清晰的理解，并在操作文件时严格遵守这些规则，注意代码安全。
 `;
 
 // ---------------------------------------------------------------------------
@@ -406,7 +428,7 @@ async function handleChat(req, res) {
           const raw = await dispatchTool(tc.name, args);
           toolResult = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
         } catch (err) {
-          toolResult = `Error: ${err.message}`;
+          toolResult = formatToolFailure(tc.name, err);
         }
 
         sseWrite(res, "tool_end", { name: tc.name, result: toolResult });
