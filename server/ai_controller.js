@@ -148,6 +148,18 @@ function validateWrittenCodeSafety(filePath, content) {
 }
 
 function formatToolFailure(name, err) {
+  if (name === "list_files") {
+    return [
+      `ListFilesError: ${err?.message ?? "unable to list files"}.`,
+      "Tip: use a project-relative directory path, and avoid restricted paths.",
+    ].join(" ");
+  }
+  if (name === "read_file") {
+    return [
+      `ReadFileError: ${err?.message ?? "unable to read file"}.`,
+      "Tip: use a project-relative file path, ensure the file exists, and avoid restricted files.",
+    ].join(" ");
+  }
   if (name === "write_file" && err?.name === "SecurityValidationError") {
     return `SecurityValidationError: ${err.message}`;
   }
