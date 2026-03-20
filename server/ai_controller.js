@@ -39,11 +39,23 @@ import http from "http";
 import { fileURLToPath } from "url";
 import OpenAI from "openai";
 
+const MAX_WRITABLE_FILE_SIZE_BYTES = 300 * 1024;
+
+const DANGEROUS_CODE_PATTERNS = [
+  { regex: /\b(?:require|import)\s*\(?\s*["'](?:node:)?child_process["']\s*\)?/m, reason: "forbidden module: child_process" },
+  { regex: /\b(?:exec|execSync|spawn|spawnSync|fork)\s*\(/m, reason: "forbidden process execution API" },
+  { regex: /\b(?:eval|Function)\s*\(/m, reason: "dynamic code execution is forbidden" },
+  { regex: /\bprocess\.exit\s*\(/m, reason: "process termination is forbidden" },
+];
+
 // ---------------------------------------------------------------------------
 // Permission roots (shared by both modes)
 // ---------------------------------------------------------------------------
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const RESTRICTED_READ_PATHS = [
+  path.join(PROJECT_ROOT, "local.env"),
+];
 
 const ALLOWED_DIRS = {
   scripts: path.join(PROJECT_ROOT, "src", "scripts"),
@@ -59,6 +71,9 @@ function assertReadablePath(relPath = ".") {
   const isInsideProject = resolved === PROJECT_ROOT || resolved.startsWith(PROJECT_ROOT + path.sep);
   if (!isInsideProject) {
     throw new Error(`Access denied: '${relPath}' is outside project root.`);
+  }
+  if (RESTRICTED_READ_PATHS.includes(resolved)) {
+    throw new Error(`Access denied: '${relPath}' is a restricted file.`);
   }
   return resolved;
 }
@@ -84,11 +99,13 @@ function assertWritablePath(relPath) {
 async function toolListFiles(dirPath = ".") {
   const dir = assertReadablePath(dirPath);
   const entries = await fs.readdir(dir, { withFileTypes: true });
-  return entries.map((e) => ({
-    name: e.name,
-    type: e.isDirectory() ? "directory" : "file",
-    path: path.relative(PROJECT_ROOT, path.join(dir, e.name)) || ".",
-  }));
+  return entries
+    .filter((e) => !RESTRICTED_READ_PATHS.includes(path.join(dir, e.name)))
+    .map((e) => ({
+      name: e.name,
+      type: e.isDirectory() ? "directory" : "file",
+      path: path.relative(PROJECT_ROOT, path.join(dir, e.name)) || ".",
+    }));
 }
 
 async function toolReadFile(filePath) {
@@ -96,11 +113,56 @@ async function toolReadFile(filePath) {
   return await fs.readFile(resolved, "utf-8");
 }
 
+function validateWrittenCodeSafety(filePath, content) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (![".js", ".vue"].includes(ext)) {
+    throw new Error(`Security check failed: only .js/.vue are writable ('${filePath}')`);
+  }
+
+  const sizeInBytes = Buffer.byteLength(content, "utf-8");
+  if (sizeInBytes > MAX_WRITABLE_FILE_SIZE_BYTES) {
+    throw new Error(
+      `Security check failed: file too large (${sizeInBytes} bytes > ${MAX_WRITABLE_FILE_SIZE_BYTES} bytes)`
+    );
+  }
+
+  for (const rule of DANGEROUS_CODE_PATTERNS) {
+    if (rule.regex.test(content)) {
+      throw new Error(`Security check failed: ${rule.reason}`);
+    }
+  }
+}
+
 async function toolWriteFile(filePath, content) {
   const resolved = assertWritablePath(filePath);
+  let existedBefore = true;
+  let previousContent = "";
+
+  try {
+    previousContent = await fs.readFile(resolved, "utf-8");
+  } catch (err) {
+    if (err?.code === "ENOENT") {
+      existedBefore = false;
+    } else {
+      throw err;
+    }
+  }
+
   await fs.mkdir(path.dirname(resolved), { recursive: true });
   await fs.writeFile(resolved, content, "utf-8");
-  return `OK: written '${filePath}'`;
+
+  try {
+    validateWrittenCodeSafety(filePath, content);
+  } catch (err) {
+    if (existedBefore) {
+      await fs.writeFile(resolved, previousContent, "utf-8");
+    } else {
+      await fs.unlink(resolved).catch(() => {});
+    }
+    throw err;
+  }
+
+  return `OK: written '${filePath}' (security-check: passed)`;
 }
 
 async function toolDeleteFile(filePath) {
