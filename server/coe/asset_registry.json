@@ -1,11 +1,39 @@
 {
   "version": "1.0",
-  "updated_at": "2026-03-26T13:23:58.539490+00:00",
+  "updated_at": "2026-03-26T16:42:47.492012+00:00",
   "assets": [
     {
-      "id": "VD-001",
-      "name": "Web Scraper Bot",
-      "type": "virtual_device",
+      "id": "temp-sensor-01",
+      "name": "温度传感器 01",
+      "type": "device",
+      "status": "planning",
+      "metadata": {
+        "owner": "system",
+        "team": "general",
+        "tags": [
+          "sensor",
+          "temperature"
+        ],
+        "description": "",
+        "version": "1.0.0",
+        "created_at": "2026-03-26T16:42:47.491030+00:00",
+        "updated_at": "2026-03-26T16:42:47.491030+00:00",
+        "documentation": ""
+      },
+      "runtime_state": {},
+      "device_subtype": "physical",
+      "hardware_info": {},
+      "protocol": "ws",
+      "bot_type": "",
+      "entry_point": "",
+      "capabilities": [],
+      "input_schema": {},
+      "output_schema": {}
+    },
+    {
+      "id": "web-scraper-v1",
+      "name": "网页爬虫 Bot",
+      "type": "device",
       "status": "planning",
       "metadata": {
         "owner": "alice",
@@ -14,13 +42,16 @@
           "rpa",
           "web"
         ],
-        "description": "爬虫机器人",
+        "description": "",
         "version": "1.0.0",
-        "created_at": "2026-03-26T13:23:58.536785+00:00",
-        "updated_at": "2026-03-26T13:23:58.536785+00:00",
+        "created_at": "2026-03-26T16:42:47.491573+00:00",
+        "updated_at": "2026-03-26T16:42:47.491573+00:00",
         "documentation": ""
       },
       "runtime_state": {},
+      "device_subtype": "virtual",
+      "hardware_info": {},
+      "protocol": "ws",
       "bot_type": "playwright",
       "entry_point": "",
       "capabilities": [
@@ -30,49 +61,20 @@
       "output_schema": {}
     },
     {
-      "id": "VD-002",
-      "name": "Email Handler Bot",
-      "type": "virtual_device",
-      "status": "planning",
-      "metadata": {
-        "owner": "bob",
-        "team": "iot",
-        "tags": [
-          "rpa",
-          "email"
-        ],
-        "description": "邮件机器人",
-        "version": "1.0.0",
-        "created_at": "2026-03-26T13:23:58.537604+00:00",
-        "updated_at": "2026-03-26T13:23:58.537604+00:00",
-        "documentation": ""
-      },
-      "runtime_state": {},
-      "bot_type": "playwright",
-      "entry_point": "",
-      "capabilities": [
-        "email_fetch",
-        "email_send"
-      ],
-      "input_schema": {},
-      "output_schema": {}
-    },
-    {
-      "id": "SK-001",
-      "name": "AI Chat Skill",
+      "id": "ai-chat-gpt4o",
+      "name": "AI 对话技能",
       "type": "ai_skill",
       "status": "planning",
       "metadata": {
         "owner": "bob",
         "team": "ai",
         "tags": [
-          "llm",
-          "chat"
+          "llm"
         ],
-        "description": "对话技能",
+        "description": "",
         "version": "1.0.0",
-        "created_at": "2026-03-26T13:23:58.538098+00:00",
-        "updated_at": "2026-03-26T13:23:58.538098+00:00",
+        "created_at": "2026-03-26T16:42:47.491781+00:00",
+        "updated_at": "2026-03-26T16:42:47.491781+00:00",
         "documentation": ""
       },
       "runtime_state": {},
@@ -85,20 +87,18 @@
       "success_rate": 1.0
     },
     {
-      "id": "SC-001",
+      "id": "demo-worker-alpha",
       "name": "Demo Worker Alpha",
       "type": "script",
       "status": "planning",
       "metadata": {
         "owner": "system",
-        "team": "iot",
-        "tags": [
-          "demo"
-        ],
+        "team": "general",
+        "tags": [],
         "description": "",
         "version": "1.0.0",
-        "created_at": "2026-03-26T13:23:58.538648+00:00",
-        "updated_at": "2026-03-26T13:23:58.538648+00:00",
+        "created_at": "2026-03-26T16:42:47.491991+00:00",
+        "updated_at": "2026-03-26T16:42:47.491991+00:00",
         "documentation": ""
       },
       "runtime_state": {},
@@ -107,28 +107,6 @@
       "parameters": [],
       "run_count": 0,
       "avg_duration_ms": 0.0
-    },
-    {
-      "id": "PD-001",
-      "name": "Temperature Sensor 01",
-      "type": "physical_device",
-      "status": "planning",
-      "metadata": {
-        "owner": "system",
-        "team": "iot",
-        "tags": [
-          "sensor",
-          "temperature"
-        ],
-        "description": "温度传感器",
-        "version": "1.0.0",
-        "created_at": "2026-03-26T13:23:58.539170+00:00",
-        "updated_at": "2026-03-26T13:23:58.539170+00:00",
-        "documentation": ""
-      },
-      "runtime_state": {},
-      "hardware_info": {},
-      "protocol": "ws"
     }
   ]
 }

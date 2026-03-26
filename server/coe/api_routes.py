@@ -105,13 +105,14 @@ async def register_asset(request: Request) -> Response:
 
     if not name or not asset_type:
         return error_response("name and type are required")
-    if asset_type not in ["physical_device", "virtual_device", "bpm_process", "ai_skill", "script"]:
+    if asset_type not in ["device", "bpm_process", "ai_skill", "script"]:
         return error_response(f"Invalid type: {asset_type}")
 
     metadata = AssetMetadata(**metadata_dict) if metadata_dict else None
-    extra = {k: v for k, v in body.items() if k not in ("name", "type", "metadata")}
+    asset_id = body.get("id")  # 可选，业务方提供
+    extra = {k: v for k, v in body.items() if k not in ("name", "type", "metadata", "id")}
 
-    asset = registry.register_asset(name=name, asset_type=asset_type, metadata=metadata, **extra)
+    asset = registry.register_asset(name=name, asset_type=asset_type, asset_id=asset_id, metadata=metadata, **extra)
     logger.info("asset_registered_via_api", asset_id=asset.id, name=name)
     return json_response(asset.to_dict(), status=201)
 
@@ -215,7 +216,7 @@ async def sync_devices(request: Request) -> Response:
     if not device_manager:
         return error_response("device_manager not available", 500)
 
-    synced = registry.sync_from_device_manager(device_manager.devices)
+    synced = registry.sync_from_device_manager(device_manager.merged_by_id)
     return json_response({"synced": synced, "total": len(registry._assets)})
 
 

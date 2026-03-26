@@ -35,15 +35,14 @@ CoE 模块（Center of Excellence）
 from .asset_registry import (
     AssetRegistry,
     Asset,
-    PhysicalDeviceAsset,
-    VirtualDeviceAsset,
+    DeviceAsset,
     BpmProcessAsset,
     AiSkillAsset,
     ScriptAsset,
     AssetMetadata,
     AssetType,
     AssetStatus,
-    AssetIdGenerator,
+    DeviceSubtype,
     get_registry,
 )
 
@@ -52,15 +51,13 @@ from .api_routes import setup_asset_routes
 __all__ = [
     "AssetRegistry",
     "Asset",
-    "PhysicalDeviceAsset",
-    "VirtualDeviceAsset",
+    "DeviceAsset",
     "BpmProcessAsset",
     "AiSkillAsset",
     "ScriptAsset",
     "AssetMetadata",
     "AssetType",
     "AssetStatus",
-    "AssetIdGenerator",
     "get_registry",
     "setup_asset_routes",
 ]
