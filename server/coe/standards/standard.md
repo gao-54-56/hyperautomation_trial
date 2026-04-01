@@ -22,7 +22,10 @@
 - id: 设备唯一标识。类型为 string 或 number（建议 string）。
 - client: 客户端实例标识，用于区分并发连接。
 - seq: 当前客户端消息序号，建议单调递增。
-- status: 设备状态，示例值为 ok。
+- status: 设备状态，典型值：
+  1. ok — 表示正常运行
+  2. offline — 表示即将下线
+  3. error — 表示运行时错误
 - payload: 业务数据载荷。
 
 ## 2. 设备接收命令（recv）
@@ -72,7 +75,10 @@
 - type: 固定为 device-state-report。
 - id: 设备标识。
 - client: 当前客户端实例标识。
-- status: 执行状态，示例值为 ok。
+- status: 执行状态，典型值：
+  1. ok 表示正确执行
+  2. refused 表示拒绝执行
+  3. failed 表示执行失败
 - source: 消息来源，示例值为 example-program。
 - requestId: 对应命令中的 requestId。
 - payload: 执行后的设备状态。

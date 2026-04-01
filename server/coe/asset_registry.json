@@ -1,12 +1,12 @@
 {
   "version": "1.0",
-  "updated_at": "2026-03-26T16:42:47.492012+00:00",
+  "updated_at": "2026-04-01T07:13:03.266471+00:00",
   "assets": [
     {
       "id": "temp-sensor-01",
       "name": "温度传感器 01",
       "type": "device",
-      "status": "planning",
+      "status": "development",
       "metadata": {
         "owner": "system",
         "team": "general",
@@ -17,7 +17,7 @@
         "description": "",
         "version": "1.0.0",
         "created_at": "2026-03-26T16:42:47.491030+00:00",
-        "updated_at": "2026-03-26T16:42:47.491030+00:00",
+        "updated_at": "2026-04-01T07:13:03.266383+00:00",
         "documentation": ""
       },
       "runtime_state": {},
@@ -34,7 +34,7 @@
       "id": "web-scraper-v1",
       "name": "网页爬虫 Bot",
       "type": "device",
-      "status": "planning",
+      "status": "archived",
       "metadata": {
         "owner": "alice",
         "team": "iot",
@@ -45,7 +45,7 @@
         "description": "",
         "version": "1.0.0",
         "created_at": "2026-03-26T16:42:47.491573+00:00",
-        "updated_at": "2026-03-26T16:42:47.491573+00:00",
+        "updated_at": "2026-04-01T07:03:21.557250+00:00",
         "documentation": ""
       },
       "runtime_state": {},
@@ -88,7 +88,7 @@
     },
     {
       "id": "demo-worker-alpha",
-      "name": "Demo Worker Alpha",
+      "name": "demo_worker_alpha",
       "type": "script",
       "status": "planning",
       "metadata": {
@@ -98,11 +98,73 @@
         "description": "",
         "version": "1.0.0",
         "created_at": "2026-03-26T16:42:47.491991+00:00",
-        "updated_at": "2026-03-26T16:42:47.491991+00:00",
+        "updated_at": "2026-04-01T07:06:41.183802+00:00",
         "documentation": ""
       },
-      "runtime_state": {},
+      "runtime_state": {
+        "file_md5": "0d1bb3903387ce02d6603da372a6f306",
+        "file_mtime_ns": 1773821251865269598,
+        "file_size": 1567
+      },
       "script_path": "src/scripts/demo_worker_alpha.js",
+      "language": "javascript",
+      "parameters": [],
+      "run_count": 0,
+      "avg_duration_ms": 0.0
+    },
+    {
+      "id": "script-demo-worker-beta-18bb1483fd02",
+      "name": "demo_worker_beta",
+      "type": "script",
+      "status": "planning",
+      "metadata": {
+        "owner": "system",
+        "team": "automation",
+        "tags": [
+          "auto-synced",
+          "script"
+        ],
+        "description": "Auto-synced from src/scripts/demo_worker_beta.js",
+        "version": "1.0.0",
+        "created_at": "2026-04-01T07:06:41.184372+00:00",
+        "updated_at": "2026-04-01T07:06:41.184372+00:00",
+        "documentation": ""
+      },
+      "runtime_state": {
+        "file_md5": "18bb1483fd023cd8b841f1275f16f6a7",
+        "file_mtime_ns": 1773509489700607067,
+        "file_size": 363
+      },
+      "script_path": "src/scripts/demo_worker_beta.js",
+      "language": "javascript",
+      "parameters": [],
+      "run_count": 0,
+      "avg_duration_ms": 0.0
+    },
+    {
+      "id": "script-monitor-temperature-94018f40cf64",
+      "name": "monitor_temperature",
+      "type": "script",
+      "status": "planning",
+      "metadata": {
+        "owner": "system",
+        "team": "automation",
+        "tags": [
+          "auto-synced",
+          "script"
+        ],
+        "description": "Auto-synced from src/scripts/monitor_temperature.js",
+        "version": "1.0.0",
+        "created_at": "2026-04-01T07:06:41.214250+00:00",
+        "updated_at": "2026-04-01T07:06:41.214250+00:00",
+        "documentation": ""
+      },
+      "runtime_state": {
+        "file_md5": "94018f40cf645c6bfbb0c074f40a6b1c",
+        "file_mtime_ns": 1773838209933410570,
+        "file_size": 1412
+      },
+      "script_path": "src/scripts/monitor_temperature.js",
       "language": "javascript",
       "parameters": [],
       "run_count": 0,

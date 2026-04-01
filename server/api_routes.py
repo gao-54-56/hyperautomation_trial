@@ -9,6 +9,7 @@ from typing import Any, Callable
 
 from aiohttp import WSMsgType, web
 
+from coe.api_routes import setup_asset_routes
 from device_manager import DeviceManager, normalize_id, utc_now_iso
 from script_runner import ScriptRunner
 
@@ -386,6 +387,8 @@ def create_app(
         return ws
 
     app = web.Application(middlewares=[auth_middleware])
+    app["device_manager"] = device_manager
+    app["script_runner"] = script_runner
     app.router.add_route("OPTIONS", "/{tail:.*}", options_handler)
     app.router.add_get("/", ws_handler)
     app.router.add_post("/api/auth/login", auth_login)
@@ -398,5 +401,8 @@ def create_app(
     app.router.add_post("/api/device/command", device_command)
     app.router.add_post("/api/device/state", device_state)
     app.router.add_post("/api/seed-sample", seed_sample)
+
+    # Mount CoE asset APIs under /api/coe/assets/* in the same app.
+    setup_asset_routes(app)
 
     return app

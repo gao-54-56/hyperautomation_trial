@@ -17,15 +17,16 @@ CoE 模块（Center of Excellence）
     # 注册一个 RPA Bot
     bot = registry.register_asset(
         name="Web Scraper Bot",
-        asset_type="virtual_device",
+        asset_type="device",
         metadata={"owner": "alice", "team": "iot", "tags": ["rpa", "scraper"]},
+        device_subtype="virtual",
         bot_type="playwright",
         entry_point="rpa_tasks.web_scraper.scrape",
         capabilities=["web_scrape", "form_fill"],
     )
 
     # 查询资产
-    bots = registry.list_by_type("virtual_device")
+    bots = registry.list_by_type("device")
     print(f"共有 {len(bots)} 个虚拟设备资产")
 
     # 更新状态
@@ -36,7 +37,7 @@ from .asset_registry import (
     AssetRegistry,
     Asset,
     DeviceAsset,
-    BpmProcessAsset,
+    WorkflowAsset,
     AiSkillAsset,
     ScriptAsset,
     AssetMetadata,
@@ -52,7 +53,7 @@ __all__ = [
     "AssetRegistry",
     "Asset",
     "DeviceAsset",
-    "BpmProcessAsset",
+    "WorkflowAsset",
     "AiSkillAsset",
     "ScriptAsset",
     "AssetMetadata",

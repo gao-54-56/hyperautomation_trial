@@ -1,6 +1,6 @@
 <script setup>
 import { computed, defineAsyncComponent, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import AiChatWidget from './components/AiChatWidget.vue'
+import AiController from './components/ai_controller.vue'
 import ScriptControlPage from './components/ScriptControlPage.vue'
 
 const activePage = ref('chat')
@@ -328,10 +328,10 @@ onUnmounted(() => {
 
     <section v-show="activePage === 'chat'" class="panel">
       <div class="panel-head">
-        <h2>AI Chat</h2>
+        <h2>AI 超级中心</h2>
       </div>
       <div class="panel-body">
-        <AiChatWidget />
+        <AiController />
       </div>
     </section>
 
@@ -378,7 +378,7 @@ onUnmounted(() => {
 
     <footer class="bottom-nav">
       <button :class="['bottom-nav__btn', { 'is-active': activePage === 'chat' }]" @click="activePage = 'chat'">
-        AI Chat
+        超级中心
       </button>
       <button :class="['bottom-nav__btn', { 'is-active': activePage === 'script' }]" @click="activePage = 'script'">
         Script Control

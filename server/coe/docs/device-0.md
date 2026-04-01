@@ -4,7 +4,7 @@
 
 ## 报文标准
 
-本目录中 IoT 设备通信报文以 [server/test_clients_iot/standard.md](server/test_clients_iot/standard.md) 为唯一标准。
+本目录中 IoT 设备通信报文以 [server/coe/standards/standard.md](server/coe/standards/standard.md) 为唯一标准。
 下文为标准内容的结构化说明，服务端与客户端联调请按该格式执行。
 
 ## 1. send（设备上报）

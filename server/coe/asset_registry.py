@@ -3,7 +3,7 @@
 
 管理项目中所有自动化相关的资产：
 - 设备（device，含 physical / virtual 两种子类型）
-- BPM 流程（bpm_process）
+- 工作流（workflow）
 - AI 技能（ai_skill）
 - 脚本（script）
 
@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import json
 import uuid
+import hashlib
+import re
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, Literal
@@ -33,7 +35,7 @@ import structlog
 
 logger = structlog.get_logger(__name__)
 
-AssetType = Literal["device", "bpm_process", "ai_skill", "script"]
+AssetType = Literal["device", "workflow", "ai_skill", "script"]
 
 
 class AssetEncoder(json.JSONEncoder):
@@ -45,6 +47,36 @@ class AssetEncoder(json.JSONEncoder):
 AssetStatus = Literal["planning", "development", "testing", "staging", "production", "deprecated", "archived"]
 LifecyclePhase = Literal["discovery", "development", "testing", "staging", "production", "deprecation", "archived"]
 DeviceSubtype = Literal["physical", "virtual"]
+
+LIFECYCLE_SEQUENCE: tuple[LifecyclePhase, ...] = (
+    "discovery",
+    "development",
+    "testing",
+    "staging",
+    "production",
+    "deprecation",
+    "archived",
+)
+
+LIFECYCLE_TO_STATUS: dict[LifecyclePhase, AssetStatus] = {
+    "discovery": "planning",
+    "development": "development",
+    "testing": "testing",
+    "staging": "staging",
+    "production": "production",
+    "deprecation": "deprecated",
+    "archived": "archived",
+}
+
+STATUS_TO_LIFECYCLE: dict[AssetStatus, LifecyclePhase] = {
+    "planning": "discovery",
+    "development": "development",
+    "testing": "testing",
+    "staging": "staging",
+    "production": "production",
+    "deprecated": "deprecation",
+    "archived": "archived",
+}
 
 
 # ============================================================
@@ -132,22 +164,22 @@ class DeviceAsset(Asset):
 
 
 @dataclass
-class BpmProcessAsset(Asset):
-    """BPM 流程资产"""
-    type: AssetType = "bpm_process"
-    process_definition_path: str = ""
+class WorkflowAsset(Asset):
+    """工作流资产"""
+    type: AssetType = "workflow"
+    workflow_path: str = ""
     version: str = "1.0.0"
-    active_instances: int = 0
-    total_instances: int = 0
+    engine: str = "kestra"
+    trigger_type: str = ""
     avg_duration_seconds: float = 0.0
 
     def to_dict(self) -> dict:
         base = super().to_dict()
         base.update({
-            "process_definition_path": self.process_definition_path,
+            "workflow_path": self.workflow_path,
             "version": self.version,
-            "active_instances": self.active_instances,
-            "total_instances": self.total_instances,
+            "engine": self.engine,
+            "trigger_type": self.trigger_type,
             "avg_duration_seconds": self.avg_duration_seconds,
         })
         return base
@@ -213,6 +245,9 @@ class AssetRegistry:
     """
 
     ASSET_FILE = Path(__file__).parent / "asset_registry.json"
+    ROOT_DIR = Path(__file__).resolve().parents[2]
+    DEFAULT_SCRIPTS_DIR = ROOT_DIR / "src" / "scripts"
+    DEFAULT_SCRIPT_EXTENSIONS: tuple[str, ...] = (".js", ".ts", ".py", ".sh")
 
     def __init__(self, load: bool = True):
         self._assets: dict[str, Asset] = {}
@@ -258,8 +293,8 @@ class AssetRegistry:
 
             if asset_type == "device":
                 asset = DeviceAsset(**d)
-            elif asset_type == "bpm_process":
-                asset = BpmProcessAsset(**d)
+            elif asset_type == "workflow":
+                asset = WorkflowAsset(**d)
             elif asset_type == "ai_skill":
                 asset = AiSkillAsset(**d)
             elif asset_type == "script":
@@ -288,7 +323,7 @@ class AssetRegistry:
 
         Args:
             name: 资产名称
-            asset_type: 资产类型（device / bpm_process / ai_skill / script）
+            asset_type: 资产类型（device / workflow / ai_skill / script）
             asset_id: 资产 ID（由业务方提供，确保全局唯一）。若不提供则自动生成。
             metadata: 元数据（可选）
             **kwargs: 传给具体 Asset 子类的额外字段
@@ -308,8 +343,8 @@ class AssetRegistry:
         # 按 type 创建对应的子类实例
         if asset_type == "device":
             asset = DeviceAsset(id=asset_id, name=name, type=asset_type, metadata=metadata, **kwargs)
-        elif asset_type == "bpm_process":
-            asset = BpmProcessAsset(id=asset_id, name=name, type=asset_type, metadata=metadata, **kwargs)
+        elif asset_type == "workflow":
+            asset = WorkflowAsset(id=asset_id, name=name, type=asset_type, metadata=metadata, **kwargs)
         elif asset_type == "ai_skill":
             asset = AiSkillAsset(id=asset_id, name=name, type=asset_type, metadata=metadata, **kwargs)
         elif asset_type == "script":
@@ -386,24 +421,50 @@ class AssetRegistry:
         asset.runtime_state.update(state)
         return True
 
-    def advance_lifecycle(self, asset_id: str, target_phase: LifecyclePhase) -> bool:
-        phase_order = [
-            "planning", "development", "testing", "staging",
-            "production", "deprecation", "archived"
-        ]
-        status_map = {
-            "discovery": "planning",
-            "development": "development",
-            "testing": "testing",
-            "staging": "staging",
-            "production": "production",
-            "deprecation": "deprecated",
-            "archived": "archived",
+    def get_lifecycle_info(self, asset_id: str) -> Optional[dict]:
+        asset = self._assets.get(asset_id)
+        if not asset:
+            return None
+
+        current_phase = STATUS_TO_LIFECYCLE.get(asset.status, "discovery")
+        current_index = LIFECYCLE_SEQUENCE.index(current_phase)
+        next_phase = (
+            LIFECYCLE_SEQUENCE[current_index + 1]
+            if current_index + 1 < len(LIFECYCLE_SEQUENCE)
+            else None
+        )
+        allowed_next_phases = list(LIFECYCLE_SEQUENCE[current_index + 1 :])
+
+        return {
+            "asset_id": asset.id,
+            "status": asset.status,
+            "current_phase": current_phase,
+            "next_phase": next_phase,
+            "allowed_next_phases": allowed_next_phases,
+            "all_phases": list(LIFECYCLE_SEQUENCE),
         }
-        if target_phase not in phase_order:
+
+    def advance_lifecycle_next(self, asset_id: str) -> Optional[LifecyclePhase]:
+        info = self.get_lifecycle_info(asset_id)
+        if not info:
+            return None
+
+        next_phase = info.get("next_phase")
+        if not isinstance(next_phase, str):
+            return None
+        if next_phase not in LIFECYCLE_SEQUENCE:
+            return None
+
+        target_phase: LifecyclePhase = next_phase
+        if not self.advance_lifecycle(asset_id, target_phase):
+            return None
+        return target_phase
+
+    def advance_lifecycle(self, asset_id: str, target_phase: LifecyclePhase) -> bool:
+        if target_phase not in LIFECYCLE_TO_STATUS:
             logger.error("invalid_lifecycle_phase", phase=target_phase)
             return False
-        new_status = status_map.get(target_phase, target_phase)
+        new_status: AssetStatus = LIFECYCLE_TO_STATUS[target_phase]
         return self.update_status(asset_id, new_status)
 
     # ---- 统计 ----
@@ -469,6 +530,217 @@ class AssetRegistry:
         self._save()
         logger.info("device_sync_completed", added=added, updated=updated, removed=removed)
         return {"added": added, "updated": updated, "removed": removed}
+
+    # ---- 与 scripts 目录同步 ----
+
+    @staticmethod
+    def _slugify(value: str) -> str:
+        slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+        return slug or "script"
+
+    @staticmethod
+    def _script_language(path: Path) -> str:
+        ext = path.suffix.lower()
+        if ext == ".js":
+            return "javascript"
+        if ext == ".ts":
+            return "typescript"
+        if ext == ".py":
+            return "python"
+        if ext == ".sh":
+            return "shell"
+        return ext.removeprefix(".") or "unknown"
+
+    @staticmethod
+    def _file_md5(path: Path) -> str:
+        md5 = hashlib.md5()
+        with path.open("rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                md5.update(chunk)
+        return md5.hexdigest()
+
+    @staticmethod
+    def _next_unique_id(existing_ids: set[str], candidate: str) -> str:
+        if candidate not in existing_ids:
+            return candidate
+        idx = 2
+        while f"{candidate}-{idx}" in existing_ids:
+            idx += 1
+        return f"{candidate}-{idx}"
+
+    def _build_script_asset_id(
+        self,
+        *,
+        rel_script_path: str,
+        script_name: str,
+        content_md5: str,
+        mtime_ns: int,
+        strategy: Literal["name_md5", "name_mtime", "path"],
+    ) -> str:
+        name_slug = self._slugify(script_name)
+        if strategy == "name_md5":
+            return f"script-{name_slug}-{content_md5[:12]}"
+        if strategy == "name_mtime":
+            return f"script-{name_slug}-{mtime_ns}"
+        path_slug = self._slugify(rel_script_path)
+        return f"script-{path_slug}"
+
+    def sync_from_scripts_dir(
+        self,
+        *,
+        scripts_dir: Optional[Path] = None,
+        id_strategy: Literal["name_md5", "name_mtime", "path"] = "name_md5",
+        archive_missing: bool = True,
+        recursive: bool = True,
+        extensions: Optional[tuple[str, ...]] = None,
+    ) -> dict:
+        """
+        从 scripts 目录自动同步 script 资产。
+
+        - 新增文件：自动注册 script 资产
+        - 已有文件：按 md5/mtime 检测变化并更新
+        - 缺失文件：可选标记为 deprecated
+        """
+        target_dir = (scripts_dir or self.DEFAULT_SCRIPTS_DIR).resolve()
+        normalized_extensions = tuple(
+            (ext if ext.startswith(".") else f".{ext}").lower()
+            for ext in (extensions or self.DEFAULT_SCRIPT_EXTENSIONS)
+        )
+        if not target_dir.exists() or not target_dir.is_dir():
+            logger.warning("scripts_dir_not_found", scripts_dir=str(target_dir))
+            return {
+                "added": 0,
+                "updated": 0,
+                "removed": 0,
+                "unchanged": 0,
+                "scanned": 0,
+                "id_strategy": id_strategy,
+                "scripts_dir": str(target_dir),
+                "recursive": recursive,
+                "extensions": list(normalized_extensions),
+                "message": "scripts dir not found",
+            }
+
+        existing_script_assets = [a for a in self._assets.values() if isinstance(a, ScriptAsset)]
+        by_path: dict[str, ScriptAsset] = {
+            a.script_path: a for a in existing_script_assets if a.script_path
+        }
+        existing_ids = set(self._assets.keys())
+
+        added = updated = removed = unchanged = 0
+        synced_paths: set[str] = set()
+        scanned_by_language: dict[str, int] = {}
+        now = datetime.now(timezone.utc).isoformat()
+
+        iterator = target_dir.rglob("*") if recursive else target_dir.glob("*")
+        script_files = sorted(
+            path for path in iterator if path.is_file() and path.suffix.lower() in normalized_extensions
+        )
+        for script_file in script_files:
+            rel_path = str(script_file.relative_to(self.ROOT_DIR)).replace("\\", "/")
+            synced_paths.add(rel_path)
+
+            md5_hex = self._file_md5(script_file)
+            stat = script_file.stat()
+            mtime_ns = int(stat.st_mtime_ns)
+            size = int(stat.st_size)
+            script_name = script_file.stem
+            language = self._script_language(script_file)
+            scanned_by_language[language] = scanned_by_language.get(language, 0) + 1
+            desired_id = self._build_script_asset_id(
+                rel_script_path=rel_path,
+                script_name=script_name,
+                content_md5=md5_hex,
+                mtime_ns=mtime_ns,
+                strategy=id_strategy,
+            )
+
+            existing = by_path.get(rel_path)
+            if existing is None:
+                unique_id = self._next_unique_id(existing_ids, desired_id)
+                existing_ids.add(unique_id)
+                asset = self.register_asset(
+                    asset_id=unique_id,
+                    name=script_name,
+                    asset_type="script",
+                    script_path=rel_path,
+                    language=language,
+                    metadata=AssetMetadata(
+                        owner="system",
+                        team="automation",
+                        tags=["auto-synced", "script"],
+                        description=f"Auto-synced from {rel_path}",
+                    ),
+                )
+                asset.runtime_state.update(
+                    {
+                        "file_md5": md5_hex,
+                        "file_mtime_ns": mtime_ns,
+                        "file_size": size,
+                    }
+                )
+                self._save()
+                if isinstance(asset, ScriptAsset):
+                    by_path[rel_path] = asset
+                added += 1
+                continue
+
+            prev_md5 = str(existing.runtime_state.get("file_md5", ""))
+            prev_mtime = int(existing.runtime_state.get("file_mtime_ns", 0) or 0)
+            prev_size = int(existing.runtime_state.get("file_size", 0) or 0)
+
+            changed = prev_md5 != md5_hex or prev_mtime != mtime_ns or prev_size != size
+            if not changed:
+                unchanged += 1
+                continue
+
+            existing.name = script_name
+            existing.script_path = rel_path
+            existing.language = language
+            existing.runtime_state.update(
+                {
+                    "file_md5": md5_hex,
+                    "file_mtime_ns": mtime_ns,
+                    "file_size": size,
+                }
+            )
+            existing.metadata.updated_at = now
+            updated += 1
+
+        if archive_missing:
+            for asset in existing_script_assets:
+                if asset.script_path and asset.script_path not in synced_paths:
+                    if asset.status != "deprecated":
+                        asset.status = "deprecated"
+                        asset.metadata.updated_at = now
+                        removed += 1
+
+        self._save()
+        logger.info(
+            "script_sync_completed",
+            added=added,
+            updated=updated,
+            removed=removed,
+            unchanged=unchanged,
+            scanned=len(script_files),
+            scanned_by_language=scanned_by_language,
+            id_strategy=id_strategy,
+            scripts_dir=str(target_dir),
+            recursive=recursive,
+            extensions=list(normalized_extensions),
+        )
+        return {
+            "added": added,
+            "updated": updated,
+            "removed": removed,
+            "unchanged": unchanged,
+            "scanned": len(script_files),
+            "scanned_by_language": scanned_by_language,
+            "id_strategy": id_strategy,
+            "scripts_dir": str(target_dir),
+            "recursive": recursive,
+            "extensions": list(normalized_extensions),
+        }
 
 
 # ============================================================
