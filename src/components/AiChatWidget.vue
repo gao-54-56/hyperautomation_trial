@@ -2,7 +2,7 @@
 import { ref, nextTick, onMounted } from 'vue'
 
 const aiBase = (import.meta.env.VITE_AI_BASE_URL || import.meta.env.VITE_API_BASE_URL || '').trim()
-const AI_ENDPOINT = `${aiBase}/api/chat`
+const AI_ENDPOINT = `${aiBase}/api/ai/chat`
 
 const history = ref([])
 const input = ref('')
@@ -84,8 +84,10 @@ async function sendMessage() {
     }
   } catch (err) {
     const message = err?.message ?? ''
-    if (message.includes('HTTP 502')) {
-      errorMsg.value = 'AI 服务不可用（HTTP 502）。请先启动：npm run ai:controller'
+    if (message.includes('HTTP 401')) {
+      errorMsg.value = '未登录或登录已过期（HTTP 401）。请重新登录后再试。'
+    } else if (message.includes('HTTP 502')) {
+      errorMsg.value = 'AI 服务不可用（HTTP 502）。请先启动主服务：npm run ws:server 或 npm run servers:start'
     } else {
       errorMsg.value = message || '连接失败'
     }
@@ -119,7 +121,7 @@ onMounted(scrollBottom)
     <div ref="scrollEl" class="ai-chat__messages-wrap">
       <ul class="ai-chat__messages" aria-label="对话列表">
         <li v-if="history.length === 0" class="ai-chat__empty">
-          向 AI 提问，例如：“读取 server/ai_controller.js”
+          向 AI 提问，例如：“读取 server/ai_controller.py”
         </li>
 
         <li

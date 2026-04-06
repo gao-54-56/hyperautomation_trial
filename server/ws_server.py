@@ -6,13 +6,16 @@ from pathlib import Path
 
 from aiohttp import web
 
-from api_routes import create_app
-from device_manager import DeviceManager
-from script_runner import ScriptRunner
+from server.api_routes import create_app
+from server.device_manager import DeviceManager
+from server.env_loader import load_env_files
+from server.script_runner import ScriptRunner
 
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+load_env_files(ROOT_DIR)
 
 PORT = int(os.getenv("WS_PORT", "8081"))
-ROOT_DIR = Path(__file__).resolve().parents[1]
 AUTH_USERNAME = os.getenv("APP_LOGIN_USERNAME", "admin").strip() or "admin"
 AUTH_PASSWORD = os.getenv("APP_LOGIN_PASSWORD", "123456")
 AUTH_TOKEN_SECRET = os.getenv("AUTH_TOKEN_SECRET", "hyperautomation-dev-secret")
@@ -49,6 +52,7 @@ script_runner = ScriptRunner()
 if __name__ == "__main__":
     print(f"WS server started on ws://localhost:{PORT}")
     print(f"Map API ready at http://localhost:{PORT}/api/merged-map/{{id}}")
+    print(f"AI chat ready at http://localhost:{PORT}/api/ai/chat")
     app = create_app(
         auth_username=AUTH_USERNAME,
         auth_password=AUTH_PASSWORD,

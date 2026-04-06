@@ -11,9 +11,9 @@
     "cap:sync": "npx cap sync",
     "cap:sync:android": "npx cap sync android",
     "cap:open:android": "npx cap open android",
-    "ws:server": "bash -lc 'set -a; [ -f .env ] && . ./.env; [ -f local.env ] && . ./local.env; set +a; python server/ws_server.py'",
-    "ws:server:py": "bash -lc 'set -a; [ -f .env ] && . ./.env; [ -f local.env ] && . ./local.env; set +a; python server/ws_server.py'",
-    "ai:controller": "bash -lc 'set -a; [ -f .env ] && . ./.env; [ -f local.env ] && . ./local.env; set +a; node server/ai_controller.js'",
+    "ws:server": "bash -lc 'set -a; [ -f .env ] && . ./.env; [ -f local.env ] && . ./local.env; set +a; python -m server.ws_server'",
+    "ws:server:py": "bash -lc 'set -a; [ -f .env ] && . ./.env; [ -f local.env ] && . ./local.env; set +a; python -m server.ws_server'",
+    "ai:controller": "bash -lc 'set -a; [ -f .env ] && . ./.env; [ -f local.env ] && . ./local.env; set +a; python -m server.ai_controller_fastmcp'",
     "servers:start": "bash server/start_servers.sh"
   },
   "dependencies": {

@@ -1,2 +1,4 @@
 aiohttp>=3.10,<4
 zarr>=2,<3
+openai>=1.40,<2
+fastmcp>=1.0,<2

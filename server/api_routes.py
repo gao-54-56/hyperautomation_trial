@@ -9,9 +9,10 @@ from typing import Any, Callable
 
 from aiohttp import WSMsgType, web
 
-from coe.api_routes import setup_asset_routes
-from device_manager import DeviceManager, normalize_id, utc_now_iso
-from script_runner import ScriptRunner
+from server.ai_controller import setup_ai_routes
+from server.coe.api_routes import setup_asset_routes
+from server.device_manager import DeviceManager, normalize_id, utc_now_iso
+from server.script_runner import ScriptRunner
 
 
 JsonResponse = Callable[[Any, int], web.Response]
@@ -401,6 +402,7 @@ def create_app(
     app.router.add_post("/api/device/command", device_command)
     app.router.add_post("/api/device/state", device_state)
     app.router.add_post("/api/seed-sample", seed_sample)
+    setup_ai_routes(app, prefix="/api/ai")
 
     # Mount CoE asset APIs under /api/coe/assets/* in the same app.
     setup_asset_routes(app)

@@ -14,7 +14,7 @@ fi
 set +a
 
 WS_PORT_VALUE="${WS_PORT:-8081}"
-AI_PORT_VALUE="${AI_PORT:-8082}"
+START_MCP_VALUE="${START_MCP:-1}"
 
 resolve_python_bin() {
   if [[ -n "${PYTHON_BIN:-}" ]]; then
@@ -54,7 +54,6 @@ is_port_listening() {
 cleanup() {
   local exit_code=$?
   if [[ -n "${WS_PID:-}" ]]; then kill "$WS_PID" 2>/dev/null || true; fi
-  if [[ -n "${AI_PID:-}" ]]; then kill "$AI_PID" 2>/dev/null || true; fi
   wait 2>/dev/null || true
   exit "$exit_code"
 }
@@ -68,34 +67,25 @@ fi
 if is_port_listening "$WS_PORT_VALUE"; then
   echo "[start_servers] ws port $WS_PORT_VALUE already in use, skip starting ws_server.py"
 else
-  "$PYTHON_BIN_VALUE" server/ws_server.py &
+  "$PYTHON_BIN_VALUE" -m server.ws_server &
   WS_PID=$!
-fi
-
-if is_port_listening "$AI_PORT_VALUE"; then
-  echo "[start_servers] ai port $AI_PORT_VALUE already in use, skip starting ai_controller.js"
-else
-  node server/ai_controller.js &
-  AI_PID=$!
 fi
 
 if [[ -n "${WS_PID:-}" ]]; then
   echo "ws_server.py started (pid=$WS_PID, port=$WS_PORT_VALUE)"
 fi
 
-if [[ -n "${AI_PID:-}" ]]; then
-  echo "ai_controller.js started (pid=$AI_PID, port=$AI_PORT_VALUE)"
+if [[ "$START_MCP_VALUE" != "0" ]]; then
+  echo "[start_servers] starting mcp stdio server"
+  echo "Press Ctrl+C to stop started services"
+  "$PYTHON_BIN_VALUE" -m server.ai_controller_fastmcp
+  exit $?
 fi
 
-if [[ -z "${WS_PID:-}" && -z "${AI_PID:-}" ]]; then
-  echo "[start_servers] both services are already running, nothing to start"
+if [[ -z "${WS_PID:-}" ]]; then
+  echo "[start_servers] ws service is already running, nothing to start"
   exit 0
 fi
 
 echo "Press Ctrl+C to stop started services"
-
-PIDS=()
-if [[ -n "${WS_PID:-}" ]]; then PIDS+=("$WS_PID"); fi
-if [[ -n "${AI_PID:-}" ]]; then PIDS+=("$AI_PID"); fi
-
-wait "${PIDS[@]}"
+wait "$WS_PID"

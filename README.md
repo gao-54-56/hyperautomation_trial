@@ -3,7 +3,6 @@
 - 安装依赖：`npm install`
 - 启动服务器（Python，默认）：`npm run ws:server`
 - 启动 Python 服务器（显式）：`npm run ws:server:py`
-- 启动 Node 服务器（兼容旧版）：`npm run ws:server:node`
 - 默认地址：`ws://localhost:8081`
 - 自定义端口：`WS_PORT=9001 npm run ws:server`
 
@@ -58,7 +57,7 @@ Python 服务器依赖：
 - 服务器也会广播 `state-updated` 事件供客户端接收。
 - 如果你的服务地址不同，请设置 Vite 环境变量：
 	- `VITE_API_BASE_URL=http://127.0.0.1:8081`
-	- `VITE_AI_BASE_URL=http://127.0.0.1:8082`
+	- `VITE_AI_BASE_URL=http://127.0.0.1:8081`
 	- `VITE_WS_URL=ws://127.0.0.1:8081`
 
 ## 脚本控制页
@@ -69,12 +68,12 @@ Python 服务器依赖：
 - 可控脚本会从 `src/scripts/` 自动发现（所有 `.js` 文件）。
 - 这些脚本独立运行（standalone），不经过服务端命令转发。
 
-## AI 聊天（HTTP 502 排查）
+## AI 聊天（同端口挂载）
 
-- AI 聊天接口默认走前端同源路径 `/api/chat`，由 Vite 代理到 `http://127.0.0.1:8082`。
-- 如果 AI 聊天出现 `HTTP 502`，通常是 AI 服务未启动。
-- 启动命令：`npm run ai:controller`
-- 一键同时启动 WS + AI：`npm run servers:start`
+- AI 聊天接口挂载在主服务同源路径 `/api/ai/chat`。
+- 如果 AI 聊天出现 `HTTP 502`，通常是主服务未启动，或前端仍在访问旧地址。
+- 启动主服务与 MCP：`npm run servers:start`
+- 单独启动 MCP：`npm run ai:controller`
 
 ## Android 打包（后端远程）
 
@@ -98,8 +97,3 @@ Python 服务器依赖：
 
 - 创建 tag：`git tag v1.0.0`
 - 推送 tag：`git push origin v1.0.0`
-
-## English
-
-For the English version, see [README.en.md](README.en.md).
-

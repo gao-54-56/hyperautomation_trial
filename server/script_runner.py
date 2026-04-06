@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from script_controller import ScriptController
+from server.script_controller import ScriptController
 
 
 class ScriptRunner:
