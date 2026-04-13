@@ -1,5 +1,5 @@
 <script setup>
-import { computed, defineAsyncComponent, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, defineAsyncComponent, reactive, ref } from 'vue'
 import AiController from './components/ai_controller.vue'
 import ScriptControlPage from './components/ScriptControlPage.vue'
 
@@ -146,20 +146,6 @@ const logout = () => {
   authError.value = ''
   loginInfo.value = ''
 }
-
-const handleUnauthorized = () => {
-  isAuthenticated.value = false
-  authError.value = '登录已过期，请重新登录。'
-  loginInfo.value = ''
-}
-
-onMounted(() => {
-  window.addEventListener('auth:unauthorized', handleUnauthorized)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('auth:unauthorized', handleUnauthorized)
-})
 </script>
 
 <template>
